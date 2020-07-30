@@ -27,8 +27,8 @@ type Discovered struct {
 	JSONWebKeySetEndpoint *url.URL
 }
 
-func Discover(r *http.Request, authorizationURL string) (*Discovered, error) {
-	configURL, _ := url.Parse("https://login.microsoftonline.com/common/v2.0" + "/.well-known/openid-configuration")
+func Discover(r *http.Request) (*Discovered, error) {
+	configURL, _ := url.Parse(r.Header.Get("Authorization-URL") + "/.well-known/openid-configuration")
 	oidcReq, err := http.NewRequest("GET", configURL.String(), nil)
 	if err != nil {
 		return nil, err
@@ -86,39 +86,40 @@ func Discover(r *http.Request, authorizationURL string) (*Discovered, error) {
 func handler(w http.ResponseWriter, r *http.Request) {
 	// Pull Authorization header
 	authHeader := r.Header.Get("Authorization")
-	authURLHeader := r.Header.Get("Authorization-URL")
 
-	config, err := Discover(r, authURLHeader)
+	// OIDC Discovery, (get the userinfo endpoint)
+	config, err := Discover(r)
 	if err != nil {
 		// Handle error
 		fmt.Fprintf(w, "%s", err.Error())
 	}
 
-	fmt.Fprintf(w, "%+v %s", config, authHeader)
-
-	// Make call to the IDP
-	//	res, err := userInfoGet(r, "{{IDP_URL_ENDPOINT}}", auth_header)
+	response, err := httpGet(r, config.UserInfoEndpoint)
 	if err != nil {
 		// Handle error
 	}
+
+	fmt.Fprintf(w, "%+v %s %d", config, authHeader, response.StatusCode)
 }
 
-func httpGet(r *http.Request, url string, authHeader string) (*http.Response, error) {
-	req, err := http.NewRequest("GET", url, nil)
+func httpGet(r *http.Request, url *url.URL) (*http.Response, error) {
+	req, err := http.NewRequest("GET", url.String(), nil)
 	if err != nil {
 		// Handle error
+		return nil, err
 	}
 	// Pass on the Authorization header recieved from the request
-	req.Header.Add("Authorization", authHeader)
+	req.Header.Set("Authorization", r.Header.Get("Authorization"))
 	res, err := http.DefaultClient.Do(req)
 	if err != nil {
 		// Handle error
+		return nil, err
 	}
 
 	// Close the response body
 	defer res.Body.Close()
 
-	return res, err
+	return res, nil
 }
 
 func main() {
