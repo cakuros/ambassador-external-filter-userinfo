@@ -82,27 +82,8 @@ func Discover(r *http.Request) (*Discovered, error) {
 	return &discovery, nil
 }
 
-// Handler function that is called on receiving a request
-func handler(w http.ResponseWriter, r *http.Request) {
-	// Pull Authorization header
-	authHeader := r.Header.Get("Authorization")
-
-	// OIDC Discovery, (get the userinfo endpoint)
-	config, err := Discover(r)
-	if err != nil {
-		// Handle error
-		fmt.Fprintf(w, "%s", err.Error())
-	}
-
-	response, err := httpGet(r, config.UserInfoEndpoint)
-	if err != nil {
-		// Handle error
-	}
-
-	fmt.Fprintf(w, "%+v %s %d", config, authHeader, response.StatusCode)
-}
-
-func httpGet(r *http.Request, url *url.URL) (*http.Response, error) {
+// Send get request with bearer token to URL, returns strmap of response JSON
+func httpGet(r *http.Request, url *url.URL) (*map[string]interface{}, error) {
 	req, err := http.NewRequest("GET", url.String(), nil)
 	if err != nil {
 		// Handle error
@@ -115,11 +96,36 @@ func httpGet(r *http.Request, url *url.URL) (*http.Response, error) {
 		// Handle error
 		return nil, err
 	}
-
 	// Close the response body
 	defer res.Body.Close()
+	resText, err := ioutil.ReadAll(res.Body)
 
-	return res, nil
+	var resMap map[string]interface{}
+	err = json.Unmarshal([]byte(resText), &resMap)
+
+	return &resMap, nil
+}
+
+// Handler function that is called on receiving a request
+func handler(w http.ResponseWriter, r *http.Request) {
+	// OIDC Discovery
+	config, err := Discover(r)
+	if err != nil {
+		// Handle error
+		fmt.Fprintf(w, "%s", err.Error())
+	}
+
+	// Config is the results of OIDC Discovery, in this case we want the User Info endpoint
+	// Request r is needed to get the Authorization header to submit auth_token
+	response, err := httpGet(r, config.UserInfoEndpoint)
+	if err != nil {
+		// Handle error
+		fmt.Fprintf(w, "%s", err.Error())
+	}
+
+	// Now we have UserInfo as map[string]interface, need to convert id_token to m[s]i
+	fmt.Fprintf(w, "%+v %+v", config, response) // debug
+
 }
 
 func main() {
