@@ -1,0 +1,8 @@
+---
+apiVersion: getambassador.io/v2
+kind: Filter
+metadata:
+  name: "sf-external-filter"
+spec:
+  External:
+    auth_service: external-filter-userinfo:80

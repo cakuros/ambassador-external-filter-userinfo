@@ -7,6 +7,7 @@ import (
 	"log"
 	"net/http"
 	"net/url"
+	"os"
 )
 
 type oidConfig struct {
@@ -28,11 +29,20 @@ type Discovered struct {
 }
 
 func Discover(r *http.Request) (*Discovered, error) {
-	configURL, _ := url.Parse(r.Header.Get("Authorization-URL") + "/.well-known/openid-configuration")
+	fmt.Printf("Starting Discovery\n\n")
+	// Pull Env Variable
+	fmt.Printf("Pulling env variable\n\n")
+	env := os.Getenv("OIDC_SERVER")
+	if env == "" {
+		fmt.Printf("Missing environment variable OIDC_SERVER")
+	}
+	configURL, _ := url.Parse(env + "/.well-known/openid-configuration")
+	fmt.Printf("Discovery URL: %s\n\n", configURL.String())
 	oidcReq, err := http.NewRequest("GET", configURL.String(), nil)
 	if err != nil {
 		return nil, err
 	}
+
 	oidcRes, err := http.DefaultClient.Do(oidcReq)
 	if err != nil {
 		return nil, err
@@ -42,6 +52,8 @@ func Discover(r *http.Request) (*Discovered, error) {
 	if err != nil {
 		return nil, err
 	}
+
+	fmt.Printf("OIDC Discovery Text: %s\n\n", textBody)
 
 	// Setup decoder
 	//dec := json.NewDecoder(oidcRes.Body)
@@ -79,12 +91,15 @@ func Discover(r *http.Request) (*Discovered, error) {
 		return nil, err
 	}
 
+	fmt.Printf("Discovery struct result: %+v\n\n", discovery)
+
 	return &discovery, nil
 }
 
-// Send get request with bearer token to URL, returns strmap of response JSON
-func httpGet(r *http.Request, url *url.URL) (*map[string]interface{}, error) {
-	req, err := http.NewRequest("GET", url.String(), nil)
+// Send get request with bearer token to URL, returns strmapinterf of response JSON
+func httpPost(r *http.Request, userInfoEndpoint *url.URL) (*map[string]interface{}, error) {
+	fmt.Printf("Starting POST request to userinfo endpoint with URL: %s\n\n", userInfoEndpoint.String())
+	req, err := http.NewRequest("POST", userInfoEndpoint.String(), nil)
 	if err != nil {
 		// Handle error
 		return nil, err
@@ -96,12 +111,23 @@ func httpGet(r *http.Request, url *url.URL) (*map[string]interface{}, error) {
 		// Handle error
 		return nil, err
 	}
+	fmt.Printf("Request Sent with Authorization code: %s\n\n", r.Header.Get("Authorization"))
 	// Close the response body
 	defer res.Body.Close()
 	resText, err := ioutil.ReadAll(res.Body)
+	if err != nil {
+		return nil, err
+	}
+	fmt.Printf("Text response: %s\n\n", resText)
 
 	var resMap map[string]interface{}
 	err = json.Unmarshal([]byte(resText), &resMap)
+
+	if err != nil {
+		return nil, err
+	}
+
+	fmt.Printf("Map response: %s\n\n", resMap)
 
 	return &resMap, nil
 }
@@ -109,27 +135,31 @@ func httpGet(r *http.Request, url *url.URL) (*map[string]interface{}, error) {
 // Handler function that is called on receiving a request
 func handler(w http.ResponseWriter, r *http.Request) {
 	// OIDC Discovery
+	fmt.Printf("Handler catch, Entering Discovery\n\n")
 	config, err := Discover(r)
 	if err != nil {
 		// Handle error
-		fmt.Fprintf(w, "%s", err.Error())
+		w.WriteHeader(http.StatusBadRequest)
 	}
+
+	fmt.Printf("Discover returns: %+v, starting UserInfo POST request\n\n", config)
+	// fmt.Fprintf(w, "%v\n", config) // debug
 
 	// Config is the results of OIDC Discovery, in this case we want the User Info endpoint
 	// Request r is needed to get the Authorization header to submit auth_token
-	response, err := httpGet(r, config.UserInfoEndpoint)
-	if err != nil {
+	response, err := httpPost(r, config.UserInfoEndpoint)
+	if err != nil || response == nil {
 		// Handle error
-		fmt.Fprintf(w, "%s", err.Error())
+		w.WriteHeader(http.StatusBadRequest)
 	}
 
-	// Now we have UserInfo as map[string]interface, need to convert id_token to m[s]i
-	fmt.Fprintf(w, "%+v %+v", config, response) // debug
-
+	// Now we have UserInfo as map[string]interface
+	w.WriteHeader(200)
 }
 
 func main() {
 	// Register the handler function to match pattern '/'
 	http.HandleFunc("/", handler)
+	fmt.Printf("Starting ListenAndServe on :8080\n\n")
 	log.Fatal(http.ListenAndServe(":8080", nil))
 }
