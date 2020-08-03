@@ -6,6 +6,8 @@ metadata:
 spec:
   External:
     auth_service: external-filter
+    allowed_authorization_headers:
+      - "x-userinfo-name"
 
 ---
 apiVersion: v1
@@ -35,7 +37,7 @@ spec:
     spec:
       containers:
       - name: external-filter
-        image: caseykurosawa/external-filter-userinfo:1.4
+        image: caseykurosawa/external-filter-userinfo:1.5
         env:
         - name: "OIDC_SERVER"
           value: ""

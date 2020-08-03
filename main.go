@@ -36,18 +36,23 @@ func Discover(r *http.Request) (*Discovered, error) {
 	if env == "" {
 		fmt.Printf("Missing environment variable OIDC_SERVER")
 	}
+	// Use environment variable to construct discovery endpoint url
 	configURL, _ := url.Parse(env + "/.well-known/openid-configuration")
 	fmt.Printf("Discovery URL: %s\n\n", configURL.String())
+
+	// Create new request
 	oidcReq, err := http.NewRequest("GET", configURL.String(), nil)
 	if err != nil {
 		return nil, err
 	}
 
+	// Send request and get response
 	oidcRes, err := http.DefaultClient.Do(oidcReq)
 	if err != nil {
 		return nil, err
 	}
 	defer oidcRes.Body.Close()
+	// Read body and save as text
 	textBody, err := ioutil.ReadAll(oidcRes.Body)
 	if err != nil {
 		return nil, err
@@ -55,8 +60,7 @@ func Discover(r *http.Request) (*Discovered, error) {
 
 	fmt.Printf("OIDC Discovery Text: %s\n\n", textBody)
 
-	// Setup decoder
-	//dec := json.NewDecoder(oidcRes.Body)
+	// Empty struct for OIDC
 	var config oidConfig
 
 	err = json.Unmarshal(textBody, &config)
@@ -97,7 +101,7 @@ func Discover(r *http.Request) (*Discovered, error) {
 }
 
 // Send get request with bearer token to URL, returns strmapinterf of response JSON
-func httpPost(r *http.Request, userInfoEndpoint *url.URL) (*map[string]interface{}, error) {
+func httpPost(r *http.Request, userInfoEndpoint *url.URL) (map[string]interface{}, error) {
 	fmt.Printf("Starting POST request to userinfo endpoint with URL: %s\n\n", userInfoEndpoint.String())
 	req, err := http.NewRequest("POST", userInfoEndpoint.String(), nil)
 	if err != nil {
@@ -129,7 +133,7 @@ func httpPost(r *http.Request, userInfoEndpoint *url.URL) (*map[string]interface
 
 	fmt.Printf("Map response: %s\n\n", resMap)
 
-	return &resMap, nil
+	return resMap, nil
 }
 
 // Handler function that is called on receiving a request
@@ -153,8 +157,10 @@ func handler(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusBadRequest)
 	}
 
-	// Now we have UserInfo as map[string]interface
-	w.WriteHeader(200)
+	// Now we have UserInfo as map[string]interface, time to extract items!
+	id := response["name"] // Set "name" to any requested userinfo and attach it to the response header.
+	w.Header().Set("x-userinfo-name", id.(string))
+	w.WriteHeader(http.StatusOK)
 }
 
 func main() {
