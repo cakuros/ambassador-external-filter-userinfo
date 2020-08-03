@@ -1,0 +1,47 @@
+---
+apiVersion: getambassador.io/v2
+kind: Filter
+metadata:
+  name: external-filter-userinfo
+spec:
+  External:
+    auth_service: external-filter
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: external-filter
+spec:
+  selector:
+    app: external-filter
+  ports:
+  - port: 80
+    targetPort: 8080
+
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: external-filter
+spec:
+  selector:
+    matchLabels:
+      app: external-filter
+  template:
+    metadata:
+      labels:
+        app: external-filter
+    spec:
+      containers:
+      - name: external-filter
+        image: caseykurosawa/external-filter-userinfo:1.4
+        env:
+        - name: "OIDC_SERVER"
+          value: ""
+        resources:
+          limits:
+            memory: "128Mi"
+            cpu: "500m"
+        ports:
+        - containerPort: 8080
