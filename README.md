@@ -10,6 +10,7 @@ This filter assumes you are either passing a valid `Authorization` header in the
 1. Push to repo with `docker push {{DOCKERHUB_REPO}}/{{IMAGE_NAME}}:{{VERSION}}`
 1. Modify `k8s/deploy.yaml` in the environment variable `OIDC_SERVER` to point to the OIDC discovery point.  In the case of Azure AD, this is "https://login.microsoftonline.com/common/v2.0", the filter automatically appends "/.well-known/oidc-configuration/" for discovery.
 1. Modify `k8s/deploy.yaml` to point to the image hosted on Dockerhub (caseykurosawa/external-filter-userinfo:1.5, for example)
+1. Apply the deploy yaml and wait for it to spin up.
 1. Change your `FilterPolicy` to include the new filter.
   ```yaml
   spec:
