@@ -3,7 +3,7 @@
 Build an external filter that accepts the `Authorization` header from the previous filter in line and uses it to query the `User Info` endpoint.  This is done by doing a generic OIDC discovery for the endpoints, specifying the `User Info` endpoint and reapplying the `Authorization` header to the new request.  The `User Info` is then returned as a golang `string[map]`, which can be queried to generate response headers to send upstream.
 
 ## Installation Details:
-This filter assumes you are either passing a valid `Authorization` header in the Request, or you have an upstream filter that gets the `Authorization` header for you.
+This filter assumes you are either passing a valid `Authorization` header in the Request, or you have a downstream filter that gets the `Authorization` header for you.
 
 1. Clone the repo: `git clone https://github.com/cakuros/ambassador-external-filter-userinfo`.
 1. Run `docker build -t {{DOCKERHUB_REPO}}/{{IMAGE_NAME}}:{{VERSION}} .` (don't forget the "." at the end)
